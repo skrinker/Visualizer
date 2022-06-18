@@ -1,0 +1,9 @@
+{
+  "editor.formatOnPaste": false,
+  "editor.formatOnSave": true,
+  "editor.formatOnType": true,
+  "prettier.configPath": "./.prettierrc",
+  "editor.renderWhitespace": "none",
+  "editor.detectIndentation": false,
+  "editor.tabSize": 2
+}
