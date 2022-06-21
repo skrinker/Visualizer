@@ -3,8 +3,13 @@ export class VisualizerModule {
     analyser: AnalyserNode;
     dataArray: Uint8Array;
     playSound: AudioBufferSourceNode;
+    canvas: HTMLCanvasElement;
+    gl: WebGL2RenderingContext;
+    prog: WebGLProgram;
+    vs: WebGLShader;
+    fs: WebGLShader;
 
-    constructor(arrayBuffer: ArrayBuffer) {
+    constructor(arrayBuffer: ArrayBuffer, canvas: HTMLCanvasElement) {
         this.audioContext = new AudioContext();
         this.playSound = this.audioContext.createBufferSource();
         this.audioContext.decodeAudioData(arrayBuffer).then((buffer) => {
@@ -16,12 +21,104 @@ export class VisualizerModule {
         this.playSound.start(this.audioContext.currentTime);
         this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
         this.analyser.getByteFrequencyData(this.dataArray);
+        this.canvas = canvas;
+        this.gl = this.canvas.getContext('webgl2')!;
+        this.prog = this.gl.createProgram()!;
+
+        const vertexShaderSource = `#version 300 es
+            uniform float u_PointSize;
+            in vec2 a_Position;
+            in vec4 a_Color;
+            out vec4 v_Color;
+            void main() {
+              v_Color = a_Color;
+              gl_Position = vec4(a_Position, 0, 1);
+              gl_PointSize = u_PointSize;
+            }`;
+        this.vs = this.gl.createShader(this.gl.VERTEX_SHADER)!;
+        this.gl.shaderSource(this.vs!, vertexShaderSource);
+        this.gl.compileShader(this.vs!);
+
+        // Compile the fragment shader
+        const fragmentShaderSource = `#version 300 es
+            precision highp float;
+            in vec4 v_Color;
+            out vec4 color;
+            void main() {
+              color = v_Color;
+            }`;
+        this.fs = this.gl.createShader(this.gl.FRAGMENT_SHADER)!;
+        this.gl.shaderSource(this.fs!, fragmentShaderSource);
+        this.gl.compileShader(this.fs!);
+
+        // Link the program
+        this.gl.attachShader(this.prog!, this.vs!);
+        this.gl.attachShader(this.prog!, this.fs!);
+        this.gl.linkProgram(this.prog!);
+
+        if (!this.gl.getProgramParameter(this.prog!, this.gl.LINK_STATUS)) {
+            console.error('prog info-log:', this.gl.getProgramInfoLog(this.prog!));
+            console.error('vert info-log: ', this.gl.getShaderInfoLog(this.vs!));
+            console.error('frag info-log: ', this.gl.getShaderInfoLog(this.fs!));
+        }
     }
 
     draw() {
         let buffer = new Uint8Array(this.analyser.frequencyBinCount);
         this.analyser.getByteFrequencyData(buffer);
-        console.log(buffer);
+        // const max = temp[buffer.length - 1];
+        // const min = temp[0];
+        const max = 256;
+        // Use the program
+        this.gl.useProgram(this.prog);
+        const u_PointSize = this.gl.getUniformLocation(this.prog!, 'u_PointSize');
+
+        // Set uniform value
+        this.gl.uniform1f(u_PointSize, 5);
+        // Get uniform location
+        const a_PositionIndex = this.gl.getAttribLocation(this.prog!, 'a_Position');
+        const a_ColorIndex = this.gl.getAttribLocation(this.prog!, 'a_Color');
+
+        // Set up attribute buffers
+        const a_PositionBuffer = this.gl.createBuffer();
+        const a_ColorBuffer = this.gl.createBuffer();
+        // Set up a vertex array object
+        // This tells WebGL how to iterate your attribute buffers
+        const vao = this.gl.createVertexArray();
+        this.gl.bindVertexArray(vao);
+
+        // Pull 2 floats at a time out of the position buffer
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, a_PositionBuffer);
+        this.gl.enableVertexAttribArray(a_PositionIndex);
+        this.gl.vertexAttribPointer(a_PositionIndex, 2, this.gl.FLOAT, false, 0, 0);
+
+        // Pull 4 floats at a time out of the color buffer
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, a_ColorBuffer);
+        this.gl.enableVertexAttribArray(a_ColorIndex);
+        this.gl.vertexAttribPointer(a_ColorIndex, 4, this.gl.FLOAT, false, 0, 0);
+
+        // Add some points to the position buffer
+        const positions = new Float32Array(1024);
+        buffer.forEach((value, idx) => {
+            if (idx % 2 === 0) {
+                positions[idx] = -1 + (1 * idx) / 512;
+            } else {
+                positions[idx] = (value / max) * 2.0 - 1;
+            }
+        });
+
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, a_PositionBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, positions, this.gl.STATIC_DRAW);
+
+        // Add some points to the color buffer
+        const colors = new Float32Array(buffer.map((value) => value / max));
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, a_ColorBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, colors, this.gl.STATIC_DRAW);
+
+        // Draw the point
+        this.gl.clearColor(0, 0, 0, 1);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        this.gl.drawArrays(this.gl.POINTS, 0, positions.length / 2); // draw all 4 points
         window.requestAnimationFrame(() => this.draw());
     }
 }
