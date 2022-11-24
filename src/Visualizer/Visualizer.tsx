@@ -1,29 +1,48 @@
-import { UploadOutlined } from '@ant-design/icons';
-import { Button, Upload } from 'antd';
-import React, { createRef, LegacyRef, ReactElement, useEffect, useRef, useState } from 'react';
-
+import { Upload } from 'antd';
+import React, { createRef, LegacyRef, ReactElement, useState, useEffect } from 'react';
+import { LoadingOutlined, PlusOutlined } from '@ant-design/icons';
 import { VisualizerModule } from './VisualizerModule';
+import { RcFile } from 'antd/lib/upload';
+import './Visualizer.scss';
 
 export const Visualizer = (): ReactElement => {
-    const [arrayBuffer, setArrayBuffer] = useState<undefined | VisualizerModule>(undefined);
     const canvasRef: LegacyRef<HTMLCanvasElement> = createRef();
-    arrayBuffer?.draw();
+    const [loading, setLoading] = useState(false);
+    const [file, setFile] = useState<RcFile | null>(null);
+
+    const uploadButton = (
+        <div>
+            {loading ? <LoadingOutlined /> : <PlusOutlined />}
+            <div style={{ margin: 8 }}>Upload</div>
+        </div>
+    );
+
+    useEffect(() => {
+        if (file && canvasRef.current) {
+            file.arrayBuffer().then((data) => {
+                const buffer = new VisualizerModule(data, canvasRef.current!);
+                buffer.draw();
+                return buffer;
+            });
+        }
+    }, [file, canvasRef]);
 
     return (
-        <>
+        <div className="visualizer">
             <Upload
+                // onDrop={(e) => {
+                //     console.log('Dropped files', e.dataTransfer.files[0]);
+                // }}
                 beforeUpload={(file) => {
-                    file.arrayBuffer().then((data) => {
-                        setArrayBuffer(new VisualizerModule(data, canvasRef.current!));
-                    });
+                    setFile(file);
                     return false;
                 }}
             >
-                <Button icon={<UploadOutlined />} onClick={() => arrayBuffer?.draw()}>
-                    Select File
-                </Button>
+                {file ? 'loaded' : uploadButton}
             </Upload>
-            <canvas ref={canvasRef} height="700px" width="1000px"></canvas>
-        </>
+            <div className="canvas">
+                <canvas ref={canvasRef} height="700px" width="700px"></canvas>
+            </div>
+        </div>
     );
 };

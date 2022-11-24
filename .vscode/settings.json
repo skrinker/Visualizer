@@ -5,5 +5,5 @@
   "prettier.configPath": "./.prettierrc",
   "editor.renderWhitespace": "none",
   "editor.detectIndentation": false,
-  "editor.tabSize": 2
+  "editor.tabSize": 4
 }

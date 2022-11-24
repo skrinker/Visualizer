@@ -98,20 +98,46 @@ export class VisualizerModule {
         this.gl.vertexAttribPointer(a_ColorIndex, 4, this.gl.FLOAT, false, 0, 0);
 
         // Add some points to the position buffer
-        const positions = new Float32Array(1024);
-        buffer.forEach((value, idx) => {
-            if (idx % 2 === 0) {
-                positions[idx] = -1 + (1 * idx) / 512;
+        const positions = new Float32Array(4096);
+        let x = -0.75;
+        positions.forEach((value, idx) => {
+            if (idx % 2 === 0 && idx !== 0) {
+                //OX
+                x = x + 1.5 / 1024;
+                positions[idx] = x;
             } else {
-                positions[idx] = (value / max) * 2.0 - 1;
+                //OY
+                const y = Math.sqrt(0.75 * 0.75 - x * x);
+                const deviation = (0.2 * buffer[idx]) / max;
+                positions[idx - 1] = x - (x * deviation) / 0.75;
+                positions[idx] = y - (y * deviation) / 0.75;
             }
         });
+
+        for (let idx = 2048; idx < positions.length; idx = idx + 2) {
+            positions[idx] = -positions[4096 - idx - 1];
+            positions[idx - 1] = -positions[4096 - idx];
+        }
 
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, a_PositionBuffer);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, positions, this.gl.STATIC_DRAW);
 
         // Add some points to the color buffer
-        const colors = new Float32Array(buffer.map((value) => value / max));
+        let colors = new Float32Array(2 * buffer.length);
+        colors = colors.map((element, idx) => {
+            // 255,222,93,255
+            switch (idx % 4) {
+                case 0:
+                    return 255 / 255;
+                case 1:
+                    return 222 / 255;
+                case 2:
+                    return 93 / 255;
+                case 3:
+                    return 255 / 255;
+            }
+            return 0;
+        });
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, a_ColorBuffer);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, colors, this.gl.STATIC_DRAW);
 
