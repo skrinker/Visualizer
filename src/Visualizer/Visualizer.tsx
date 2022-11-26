@@ -1,28 +1,25 @@
-import { Upload } from 'antd';
-import React, { createRef, LegacyRef, ReactElement, useState, useEffect } from 'react';
-import { LoadingOutlined, PlusOutlined } from '@ant-design/icons';
+import { Button, Upload } from 'antd';
+import React, { createRef, LegacyRef, ReactElement, useState, useEffect, useRef } from 'react';
 import { VisualizerModule } from './VisualizerModule';
 import { RcFile } from 'antd/lib/upload';
 import './Visualizer.scss';
 
 export const Visualizer = (): ReactElement => {
     const canvasRef: LegacyRef<HTMLCanvasElement> = createRef();
-    const [loading, setLoading] = useState(false);
     const [file, setFile] = useState<RcFile | null>(null);
+    const visualizerModuleRef = useRef(new VisualizerModule());
 
     const uploadButton = (
-        <div>
-            {loading ? <LoadingOutlined /> : <PlusOutlined />}
-            <div style={{ margin: 8 }}>Upload</div>
-        </div>
+        <Button className="upload-button" type="primary">
+            Upload
+        </Button>
     );
 
     useEffect(() => {
         if (file && canvasRef.current) {
             file.arrayBuffer().then((data) => {
-                const buffer = new VisualizerModule(data, canvasRef.current!);
-                buffer.draw();
-                return buffer;
+                visualizerModuleRef.current.setup(data, canvasRef.current!);
+                visualizerModuleRef.current.draw();
             });
         }
     }, [file, canvasRef]);
@@ -37,11 +34,20 @@ export const Visualizer = (): ReactElement => {
                     setFile(file);
                     return false;
                 }}
+                onRemove={() => {
+                    setFile(null);
+                    visualizerModuleRef.current?.clear();
+                }}
             >
-                {file ? 'loaded' : uploadButton}
+                <div className="upload">{file ? 'loaded' : uploadButton}</div>
             </Upload>
             <div className="canvas">
-                <canvas ref={canvasRef} height="700px" width="700px"></canvas>
+                <canvas
+                    style={{ display: file ? 'inherit' : 'none' }}
+                    ref={canvasRef}
+                    height="700px"
+                    width="700px"
+                ></canvas>
             </div>
         </div>
     );

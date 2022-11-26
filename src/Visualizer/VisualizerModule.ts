@@ -1,27 +1,42 @@
 export class VisualizerModule {
-    audioContext: AudioContext;
-    analyser: AnalyserNode;
-    dataArray: Uint8Array;
-    playSound: AudioBufferSourceNode;
-    canvas: HTMLCanvasElement;
-    gl: WebGL2RenderingContext;
-    prog: WebGLProgram;
-    vs: WebGLShader;
-    fs: WebGLShader;
+    audioContext: AudioContext | null;
+    analyser: AnalyserNode | null;
+    dataArray: Uint8Array | null;
+    playSound: AudioBufferSourceNode | null;
+    canvas: HTMLCanvasElement | null;
+    gl: WebGL2RenderingContext | null;
+    prog: WebGLProgram | null;
+    vs: WebGLShader | null;
+    fs: WebGLShader | null;
+    arrayBuffer: ArrayBuffer | null;
 
-    constructor(arrayBuffer: ArrayBuffer, canvas: HTMLCanvasElement) {
+    constructor() {
+        this.analyser = null;
+        this.dataArray = null;
+        this.canvas = null;
+        this.gl = null;
+        this.prog = null;
+        this.audioContext = null;
+        this.playSound = null;
+        this.vs = null;
+        this.fs = null;
+        this.arrayBuffer = null;
+    }
+
+    setup(arrayBuffer: ArrayBuffer, canvas: HTMLCanvasElement) {
+        this.arrayBuffer = arrayBuffer;
         this.audioContext = new AudioContext();
         this.playSound = this.audioContext.createBufferSource();
         this.audioContext.decodeAudioData(arrayBuffer).then((buffer) => {
-            this.playSound.buffer = buffer;
+            this.playSound!.buffer = buffer;
         });
         this.analyser = this.audioContext.createAnalyser();
         this.playSound.connect(this.analyser);
         this.analyser.connect(this.audioContext.destination);
         this.playSound.start(this.audioContext.currentTime);
         this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-        this.analyser.getByteFrequencyData(this.dataArray);
         this.canvas = canvas;
+        this.analyser.getByteFrequencyData(this.dataArray);
         this.gl = this.canvas.getContext('webgl2')!;
         this.prog = this.gl.createProgram()!;
 
@@ -57,13 +72,32 @@ export class VisualizerModule {
         this.gl.linkProgram(this.prog!);
 
         if (!this.gl.getProgramParameter(this.prog!, this.gl.LINK_STATUS)) {
+            // eslint-disable-next-line no-console
             console.error('prog info-log:', this.gl.getProgramInfoLog(this.prog!));
+            // eslint-disable-next-line no-console
             console.error('vert info-log: ', this.gl.getShaderInfoLog(this.vs!));
+            // eslint-disable-next-line no-console
             console.error('frag info-log: ', this.gl.getShaderInfoLog(this.fs!));
         }
     }
 
     draw() {
+        if (
+            !(
+                this.audioContext !== null &&
+                this.analyser !== null &&
+                this.dataArray !== null &&
+                this.playSound !== null &&
+                this.canvas !== null &&
+                this.gl !== null &&
+                this.prog !== null &&
+                this.vs !== null &&
+                this.fs !== null &&
+                this.arrayBuffer !== null
+            )
+        ) {
+            return;
+        }
         let buffer = new Uint8Array(this.analyser.frequencyBinCount);
         this.analyser.getByteFrequencyData(buffer);
         // const max = temp[buffer.length - 1];
@@ -98,26 +132,23 @@ export class VisualizerModule {
         this.gl.vertexAttribPointer(a_ColorIndex, 4, this.gl.FLOAT, false, 0, 0);
 
         // Add some points to the position buffer
-        const positions = new Float32Array(4096);
+        const positions = new Float32Array(buffer.filter((val) => val !== 0).length);
         let x = -0.75;
         positions.forEach((value, idx) => {
-            if (idx % 2 === 0 && idx !== 0) {
-                //OX
-                x = x + 1.5 / 1024;
-                positions[idx] = x;
-            } else {
-                //OY
-                const y = Math.sqrt(0.75 * 0.75 - x * x);
-                const deviation = (0.2 * buffer[idx]) / max;
-                positions[idx - 1] = x - (x * deviation) / 0.75;
-                positions[idx] = y - (y * deviation) / 0.75;
+            if (buffer[idx] !== 0) {
+                if (idx % 2 === 0 && idx !== 0) {
+                    //OX
+                    x = x + 1.5 / 1024;
+                    positions[idx] = x;
+                } else {
+                    //OY
+                    const y = Math.sqrt(0.75 * 0.75 - x * x);
+                    const deviation = (0.2 * buffer[idx]) / max;
+                    positions[idx - 1] = x - (x * deviation) / 0.75;
+                    positions[idx] = y - (y * deviation) / 0.75;
+                }
             }
         });
-
-        for (let idx = 2048; idx < positions.length; idx = idx + 2) {
-            positions[idx] = -positions[4096 - idx - 1];
-            positions[idx - 1] = -positions[4096 - idx];
-        }
 
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, a_PositionBuffer);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, positions, this.gl.STATIC_DRAW);
@@ -142,140 +173,25 @@ export class VisualizerModule {
         this.gl.bufferData(this.gl.ARRAY_BUFFER, colors, this.gl.STATIC_DRAW);
 
         // Draw the point
-        this.gl.clearColor(0, 0, 0, 1);
+        this.gl.clearColor(255, 255, 255, 0);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
         this.gl.drawArrays(this.gl.POINTS, 0, positions.length / 2); // draw all 4 points
         window.requestAnimationFrame(() => this.draw());
     }
+
+    clear() {
+        this.gl?.clearColor(0, 0, 0, 1);
+        this.gl?.clear(this.gl.COLOR_BUFFER_BIT);
+        this.analyser = null;
+        this.audioContext?.close();
+        this.audioContext = null;
+        this.playSound = null;
+        this.dataArray = null;
+        this.canvas = null;
+        this.gl = null;
+        this.prog = null;
+        this.vs = null;
+        this.fs = null;
+        this.arrayBuffer = null;
+    }
 }
-//     main() {
-//   // Get A WebGL context
-//   /** @type {HTMLCanvasElement} */
-//       var canvas = document.querySelector("#canvas") as HTMLCanvasElement;;
-//       if (!canvas) {
-//         return;
-//       }
-//     var gl = canvas.getContext("webgl");
-//     if (!gl) {
-//       return;
-//     }
-
-//   // setup GLSL program
-//   var program = webglUtils.createProgramFromScripts(gl, ["vertex-shader-2d", "fragment-shader-2d"]);
-
-//   // look up where the vertex data needs to go.
-//   var positionLocation = gl.getAttribLocation(program, "a_position");
-
-//   // lookup uniforms
-//   var resolutionLocation = gl.getUniformLocation(program, "u_resolution");
-//   var colorLocation = gl.getUniformLocation(program, "u_color");
-//   var translationLocation = gl.getUniformLocation(program, "u_translation");
-//   var rotationLocation = gl.getUniformLocation(program, "u_rotation");
-
-//   // Create a buffer to put positions in
-//   var positionBuffer = gl.createBuffer();
-//   // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
-//   gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-//   // Put geometry data into buffer
-//   setGeometry(gl);
-
-//   var translation = [100, 150];
-//   var rotation = [0, 1];
-//   var color = [Math.random(), Math.random(), Math.random(), 1];
-
-//   drawScene();
-
-//   function updatePosition(index) {
-//     return function(event, ui) {
-//       translation[index] = ui.value;
-//       drawScene();
-//     };
-//   }
-
-//   function updateAngle(event, ui) {
-//     var angleInDegrees = 360 - ui.value;
-//     var angleInRadians = angleInDegrees * Math.PI / 180;
-//     rotation[0] = Math.sin(angleInRadians);
-//     rotation[1] = Math.cos(angleInRadians);
-//     drawScene();
-//   }
-
-//   // Draw the scene.
-//   function drawScene() {
-//     webglUtils.resizeCanvasToDisplaySize(gl.canvas);
-
-//     // Tell WebGL how to convert from clip space to pixels
-//     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-
-//     // Clear the canvas.
-//     gl.clear(gl.COLOR_BUFFER_BIT);
-
-//     // Tell it to use our program (pair of shaders)
-//     gl.useProgram(program);
-
-//     // Turn on the attribute
-//     gl.enableVertexAttribArray(positionLocation);
-
-//     // Bind the position buffer.
-//     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-
-//     // Tell the attribute how to get data out of positionBuffer (ARRAY_BUFFER)
-//     var size = 2;          // 2 components per iteration
-//     var type = gl.FLOAT;   // the data is 32bit floats
-//     var normalize = false; // don't normalize the data
-//     var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
-//     var offset = 0;        // start at the beginning of the buffer
-//     gl.vertexAttribPointer(
-//         positionLocation, size, type, normalize, stride, offset);
-
-//     // set the resolution
-//     gl.uniform2f(resolutionLocation, gl.canvas.width, gl.canvas.height);
-
-//     // set the color
-//     gl.uniform4fv(colorLocation, color);
-
-//     // Set the translation.
-//     gl.uniform2fv(translationLocation, translation);
-
-//     // Set the rotation.
-//     gl.uniform2fv(rotationLocation, rotation);
-
-//     // Draw the geometry.
-//     var primitiveType = gl.TRIANGLES;
-//     var offset = 0;
-//     var count = 18;  // 6 triangles in the 'F', 3 points per triangle
-//     gl.drawArrays(primitiveType, offset, count);
-//   }
-// }
-
-// // Fill the buffer with the values that define a letter 'F'.
-// function setGeometry(gl) {
-//   gl.bufferData(
-//       gl.ARRAY_BUFFER,
-//       new Float32Array([
-//           // left column
-//           0, 0,
-//           30, 0,
-//           0, 150,
-//           0, 150,
-//           30, 0,
-//           30, 150,
-
-//           // top rung
-//           30, 0,
-//           100, 0,
-//           30, 30,
-//           30, 30,
-//           100, 0,
-//           100, 30,
-
-//           // middle rung
-//           30, 60,
-//           67, 60,
-//           30, 90,
-//           30, 90,
-//           67, 60,
-//           67, 90,
-//       ]),
-//       gl.STATIC_DRAW);
-// }
