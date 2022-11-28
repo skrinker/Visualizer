@@ -131,21 +131,37 @@ export class VisualizerModule {
         this.gl.enableVertexAttribArray(a_ColorIndex);
         this.gl.vertexAttribPointer(a_ColorIndex, 4, this.gl.FLOAT, false, 0, 0);
 
+        const xs = [-1, -0.5, 0, 0.5, 1]
+
+        const calculate = (x: number, ys: number[]) => {
+            let sum = 0
+            for (let i = 0; i < 5; i++){
+ 
+                let l = 1;
+                for (let j = 0; j < 5; j++)
+                    if (j != i){
+                        l = l* (x - xs[j]) / (xs[i] - xs[j]);
+                    }
+                sum += ys[i] * l;
+            }
+            return sum
+        }
+
         // Add some points to the position buffer
-        const positions = new Float32Array(buffer.filter((val) => val !== 0).length);
-        let x = -0.75;
+        const positions = new Float32Array(buffer.length / 2);
+        let x = -1;
+        const ys = [buffer[0] / 256, buffer[125] / 256, buffer[250] / 256, buffer[375] / 256, buffer[500] / 256]
+        console.log(ys);
         positions.forEach((value, idx) => {
             if (buffer[idx] !== 0) {
                 if (idx % 2 === 0 && idx !== 0) {
                     //OX
-                    x = x + 1.5 / 1024;
+                    x = x + 8 / 1024;
                     positions[idx] = x;
                 } else {
                     //OY
-                    const y = Math.sqrt(0.75 * 0.75 - x * x);
-                    const deviation = (0.2 * buffer[idx]) / max;
-                    positions[idx - 1] = x - (x * deviation) / 0.75;
-                    positions[idx] = y - (y * deviation) / 0.75;
+                    const y = calculate(positions[idx - 1], ys) - 0.5;
+                    positions[idx] = y;
                 }
             }
         });
@@ -175,7 +191,7 @@ export class VisualizerModule {
         // Draw the point
         this.gl.clearColor(255, 255, 255, 0);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
-        this.gl.drawArrays(this.gl.POINTS, 0, positions.length / 2); // draw all 4 points
+        this.gl.drawArrays(this.gl.POINTS, 0, positions.length / 2); //draw all 1024 dots
         window.requestAnimationFrame(() => this.draw());
     }
 
