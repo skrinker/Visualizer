@@ -9,6 +9,7 @@ export class VisualizerModule {
     vs: WebGLShader | null;
     fs: WebGLShader | null;
     arrayBuffer: ArrayBuffer | null;
+    duration: number;
 
     constructor() {
         this.analyser = null;
@@ -21,6 +22,7 @@ export class VisualizerModule {
         this.vs = null;
         this.fs = null;
         this.arrayBuffer = null;
+        this.duration = 0;
     }
 
     setup(arrayBuffer: ArrayBuffer, canvas: HTMLCanvasElement) {
@@ -29,6 +31,7 @@ export class VisualizerModule {
         this.playSound = this.audioContext.createBufferSource();
         this.audioContext.decodeAudioData(arrayBuffer).then((buffer) => {
             this.playSound!.buffer = buffer;
+            this.duration = this.playSound!.buffer.duration;
         });
         this.analyser = this.audioContext.createAnalyser();
         this.playSound.connect(this.analyser);
@@ -82,6 +85,7 @@ export class VisualizerModule {
     }
 
     draw() {
+        // eslint-disable-next-line no-console
         if (
             !(
                 this.audioContext !== null &&
@@ -98,11 +102,12 @@ export class VisualizerModule {
         ) {
             return;
         }
+
         let buffer = new Uint8Array(this.analyser.frequencyBinCount);
         this.analyser.getByteFrequencyData(buffer);
         // const max = temp[buffer.length - 1];
         // const min = temp[0];
-        const max = 256;
+        // const max = 256;
         // Use the program
         this.gl.useProgram(this.prog);
         const u_PointSize = this.gl.getUniformLocation(this.prog!, 'u_PointSize');
@@ -131,27 +136,26 @@ export class VisualizerModule {
         this.gl.enableVertexAttribArray(a_ColorIndex);
         this.gl.vertexAttribPointer(a_ColorIndex, 4, this.gl.FLOAT, false, 0, 0);
 
-        const xs = [-1, -0.5, 0, 0.5, 1]
+        const xs = [-1, -0.5, 0, 0.5, 1];
 
         const calculate = (x: number, ys: number[]) => {
-            let sum = 0
-            for (let i = 0; i < 5; i++){
- 
+            let sum = 0;
+            for (let i = 0; i < 5; i++) {
                 let l = 1;
-                for (let j = 0; j < 5; j++)
-                    if (j != i){
-                        l = l* (x - xs[j]) / (xs[i] - xs[j]);
+                for (let j = 0; j < 5; j++) {
+                    if (j != i) {
+                        l = (l * (x - xs[j])) / (xs[i] - xs[j]);
                     }
+                }
                 sum += ys[i] * l;
             }
-            return sum
-        }
+            return sum;
+        };
 
         // Add some points to the position buffer
         const positions = new Float32Array(buffer.length / 2);
         let x = -1;
-        const ys = [buffer[0] / 256, buffer[125] / 256, buffer[250] / 256, buffer[375] / 256, buffer[500] / 256]
-        console.log(ys);
+        const ys = [buffer[0] / 256, buffer[125] / 256, buffer[250] / 256, buffer[375] / 256, buffer[500] / 256];
         positions.forEach((value, idx) => {
             if (buffer[idx] !== 0) {
                 if (idx % 2 === 0 && idx !== 0) {
@@ -211,3 +215,5 @@ export class VisualizerModule {
         this.arrayBuffer = null;
     }
 }
+
+export const visualizerModule = new VisualizerModule();

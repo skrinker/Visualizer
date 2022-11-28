@@ -1,13 +1,13 @@
 import { Button, Upload } from 'antd';
 import React, { createRef, LegacyRef, ReactElement, useState, useEffect, useRef } from 'react';
-import { VisualizerModule } from './VisualizerModule';
+import { visualizerModule,  } from './VisualizerModule';
 import { RcFile } from 'antd/lib/upload';
 import './Visualizer.scss';
+import { PlaybackProgress } from '../PlaybackProgress/PlaybackProgress';
 
 export const Visualizer = (): ReactElement => {
     const canvasRef: LegacyRef<HTMLCanvasElement> = createRef();
     const [file, setFile] = useState<RcFile | null>(null);
-    const visualizerModuleRef = useRef(new VisualizerModule());
 
     const uploadButton = (
         <Button className="upload-button" type="primary">
@@ -18,8 +18,8 @@ export const Visualizer = (): ReactElement => {
     useEffect(() => {
         if (file && canvasRef.current) {
             file.arrayBuffer().then((data) => {
-                visualizerModuleRef.current.setup(data, canvasRef.current!);
-                visualizerModuleRef.current.draw();
+                visualizerModule.setup(data, canvasRef.current!);
+                visualizerModule.draw();
             });
         }
     }, [file, canvasRef]);
@@ -36,7 +36,7 @@ export const Visualizer = (): ReactElement => {
                 }}
                 onRemove={() => {
                     setFile(null);
-                    visualizerModuleRef.current?.clear();
+                    visualizerModule.clear();
                 }}
             >
                 <div className="upload">{file ? 'loaded' : uploadButton}</div>
@@ -49,6 +49,7 @@ export const Visualizer = (): ReactElement => {
                     width="700px"
                 ></canvas>
             </div>
+            <PlaybackProgress />
         </div>
     );
 };

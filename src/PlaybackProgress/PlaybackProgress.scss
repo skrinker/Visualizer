@@ -1,0 +1,13 @@
+.player {
+    width: 700px;
+
+    .playback-progress-bar {
+        height: 3px;
+    }
+
+    .player-control {
+        display: inline-flex;
+        width: 100%;
+        justify-content: space-between;
+    }
+}
